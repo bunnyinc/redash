@@ -34,7 +34,9 @@ class TestAlertListPost(BaseTestCase):
     def test_returns_200_if_has_access_to_query(self):
         query = self.factory.create_query()
 
-        rv = self.make_request('post', "/api/alerts", data=dict(name='Alert', query_id=query.id, options={}))
+        rv = self.make_request('post', "/api/alerts", data=dict(
+            name='Alert', query_id=query.id, options={'evaluation_method': 'shewhart'}
+        ))
         self.assertEqual(rv.status_code, 200)
 
     def test_fails_if_doesnt_have_access_to_query(self):

@@ -37,7 +37,6 @@ redash_template:
     REDASH_MAIL_PORT: 1025
     REDASH_MAIL_DEFAULT_SENDER: "analytics@gmail.com"
 
-
 redash:
   extends:
     service: redash_template
@@ -103,5 +102,3 @@ redash_tests:
     REDASH_REDIS_URL: "redis://redis.local.redash.bunnyinc.com:6379/5"
     REDASH_CELERY_BROKER: "redis://redis.local.redash.bunnyinc.com:6379/6"
     REDASH_DATABASE_URL: "postgresql://postgres@postgres.local.redash.bunnyinc.com/circle_test"
-
-

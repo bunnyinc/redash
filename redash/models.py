@@ -1,4 +1,5 @@
 import json
+import types
 from flask_login import UserMixin, AnonymousUserMixin
 import hashlib
 import logging
@@ -11,8 +12,9 @@ from funcy import project
 
 import peewee
 from passlib.apps import custom_app_context as pwd_context
-from playhouse.gfk import GFKField, BaseModel
+from playhouse.gfk import GFKField
 from playhouse.postgres_ext import ArrayField, DateTimeTZField
+from playhouse.signals import post_init, Model as SignalModel
 from permissions import has_access, view_only
 
 from redash import utils, settings, redis_connection
@@ -20,6 +22,7 @@ from redash.query_runner import get_query_runner, get_configuration_schema_for_t
 from redash.metrics.database import MeteredPostgresqlExtDatabase, MeteredModel
 from redash.utils import generate_token
 from redash.utils.configuration import ConfigurationContainer
+from redash.alert_evaluation_methods import get_alert_evaluation_method
 
 
 class Database(object):
@@ -731,7 +734,7 @@ class Query(ModelTimestampsMixin, BaseModel, BelongsToOrgMixin):
         return unicode(self.id)
 
 
-class Alert(ModelTimestampsMixin, BaseModel):
+class Alert(ModelTimestampsMixin, BaseModel, SignalModel):
     UNKNOWN_STATE = 'unknown'
     OK_STATE = 'ok'
     TRIGGERED_STATE = 'triggered'
@@ -782,22 +785,14 @@ class Alert(ModelTimestampsMixin, BaseModel):
 
         return d
 
+    def post_save(self, created):
+        super(Alert, self).post_save(created)
+        self.evaluation_method = get_alert_evaluation_method(self.options['evaluation_method'])
+
     def evaluate(self):
-        data = json.loads(self.query.latest_query_data.data)
-        # todo: safe guard for empty
-        value = data['rows'][0][self.options['column']]
-        op = self.options['op']
-
-        if op == 'greater than' and value > self.options['value']:
-            new_state = self.TRIGGERED_STATE
-        elif op == 'less than' and value < self.options['value']:
-            new_state = self.TRIGGERED_STATE
-        elif op == 'equals' and value == self.options['value']:
-            new_state = self.TRIGGERED_STATE
-        else:
-            new_state = self.OK_STATE
-
-        return new_state
+        return self.evaluation_method.evaluate(
+            self.options, json.loads(self.query.latest_query_data.data)
+        )
 
     def subscribers(self):
         return User.select().join(AlertSubscription).where(AlertSubscription.alert==self)
@@ -805,6 +800,11 @@ class Alert(ModelTimestampsMixin, BaseModel):
     @property
     def groups(self):
         return self.query.groups
+
+
+@post_init(sender=Alert)
+def attach_alert_evaluation_method(model_class, instance):
+    instance.evaluation_method = get_alert_evaluation_method(instance.options['evaluation_method'])
 
 
 class AlertSubscription(ModelTimestampsMixin, BaseModel):

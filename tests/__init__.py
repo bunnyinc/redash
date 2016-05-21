@@ -1,5 +1,4 @@
 import os
-
 # Dummy values for oauth login
 os.environ['REDASH_GOOGLE_CLIENT_ID'] = "dummy"
 os.environ['REDASH_GOOGLE_CLIENT_SECRET'] = "dummy"

@@ -3,13 +3,15 @@ FROM ubuntu:trusty
 # Ubuntu packages
 RUN apt-get update && \
   apt-get install -y python-pip python-dev curl build-essential pwgen libffi-dev sudo git-core wget \
+  gfortran gcc \
   # Postgres client
   libpq-dev \
+  # Math
+  liblapack-dev liblapack3 \
   # Additional packages required for data sources:
   libssl-dev libmysqlclient-dev freetds-dev && \
   apt-get clean && \
   rm -rf /var/lib/apt/lists/*
-
 
 # Pip requirements for all data source types
 RUN pip install -U setuptools
@@ -18,10 +20,13 @@ RUN pip install -U setuptools
 COPY ./requirements.txt requirements.txt
 COPY ./requirements_dev.txt requirements_dev.txt
 COPY ./requirements_all_ds.txt requirements_all_ds.txt
+COPY ./requirements_for_alerts.txt requirements_for_alerts.txt
 RUN pip install -r requirements.txt && \
   pip install -r requirements_dev.txt && \
   pip install -r requirements_all_ds.txt && \
+  pip install -r requirements_for_alerts.txt && \
   pip install pymongo==3.2.1
 RUN rm requirements.txt && \
   rm requirements_dev.txt && \
-  rm requirements_all_ds.txt
+  rm requirements_all_ds.txt && \
+  rm requirements_for_alerts.txt

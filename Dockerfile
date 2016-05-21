@@ -3,8 +3,11 @@ FROM ubuntu:trusty
 # Ubuntu packages
 RUN apt-get update && \
   apt-get install -y python-pip python-dev curl build-essential pwgen libffi-dev sudo git-core wget \
+  gfortran gcc \
   # Postgres client
   libpq-dev \
+  # Math
+  liblapack-dev liblapack3 \
   # Additional packages required for data sources:
   libssl-dev libmysqlclient-dev freetds-dev && \
   apt-get clean && \
@@ -27,7 +30,8 @@ ENV REDASH_STATIC_ASSETS_PATH="../rd_ui/dist/"
 
 # Install project specific dependencies
 RUN pip install -r requirements_all_ds.txt && \
-  pip install -r requirements.txt
+  pip install -r requirements.txt && \
+  pip install -r requirements_for_alerts.txt
 
 RUN curl https://deb.nodesource.com/setup_4.x | bash - && \
   apt-get install -y nodejs && \

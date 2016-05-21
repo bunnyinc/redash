@@ -60,7 +60,7 @@
       $scope.selectedQuery = item;
       item.getQueryResultPromise().then(function(result) {
         $scope.queryResult = result;
-        $scope.alert.options.column = $scope.alert.options.column || result.getColumnNames()[0];
+        $scope.alert.options.column = result.getColumnNames()[0];
       });
     };
 
@@ -72,15 +72,8 @@
       });
     }
 
-    $scope.ops = ['greater than', 'less than', 'equals'];
     $scope.selectedQuery = null;
-
-    $scope.getDefaultName = function() {
-      if (!$scope.alert.query) {
-        return undefined;
-      }
-      return _.template("<%= query.name %>: <%= options.column %> <%= options.op %> <%= options.value %>", $scope.alert);
-    };
+    $scope.queryResult = null;
 
     $scope.searchQueries = function (term) {
       if (!term || term.length < 3) {
@@ -93,12 +86,6 @@
     };
 
     $scope.saveChanges = function() {
-      if ($scope.alert.name === undefined || $scope.alert.name === '') {
-        $scope.alert.name = $scope.getDefaultName();
-      }
-      if ($scope.alert.rearm === '' || $scope.alert.rearm === 0) {
-        $scope.alert.rearm = null;
-      }
       $scope.alert.$save(function(alert) {
         growl.addSuccessMessage("Saved.");
         if ($scope.alertId === "new") {
