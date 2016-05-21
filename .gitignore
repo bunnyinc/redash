@@ -19,6 +19,5 @@ redash/dump.rdb
 venv
 
 dump.rdb
-
-# Docker related
-docker-compose.yml
+.tmp
+.junit.xml

@@ -1,0 +1,107 @@
+# utilities
+dns:
+  image: t0mk/dnscock
+  ports:
+    - "0.0.0.0:53:53/udp"
+  volumes:
+    - /var/run/docker.sock:/var/run/docker.sock
+  command: -domain="local.bunny-engine.com" -ttl=1
+mail:
+  image: registry.bunnyinc.com/mailcatcher:0.5.12
+  environment:
+    - DNSDOCK_ALIAS=mail.local.redash.bunnyinc.com
+
+
+redis:
+  image: redis:2.8
+  environment:
+   - DNSDOCK_ALIAS=redis.local.redash.bunnyinc.com
+postgres:
+  image: postgres:9.3
+  volumes:
+    - /opt/postgres-data:/var/lib/postgresql/data
+  environment:
+   - DNSDOCK_ALIAS=postgres.local.redash.bunnyinc.com
+
+
+redash_template:
+  image: registry.bunnyinc.com/redash_dev:latest
+  volumes:
+    - .:/opt/redash/current
+    - ./.tmp/logs:/var/log/redash
+  working_dir: /opt/redash/current
+  environment:
+    REDASH_LOG_LEVEL: "DEBUG"
+    REDASH_COOKIE_SECRET: veryverysecret
+    REDASH_MAIL_SERVER: "mail.local.redash.bunnyinc.com"
+    REDASH_MAIL_PORT: 1025
+    REDASH_MAIL_DEFAULT_SENDER: "analytics@gmail.com"
+
+
+redash:
+  extends:
+    service: redash_template
+  expose:
+    - 5000
+  ports:
+    - "5000:5000"
+  environment:
+    REDASH_STATIC_ASSETS_PATH: "../rd_ui/dist"
+    REDASH_REDIS_URL: "redis://redis.local.redash.bunnyinc.com:6379/0"
+    REDASH_DATABASE_URL: "postgresql://postgres@postgres.local.redash.bunnyinc.com/postgres"
+  command: bash -c "python ./manage.py runserver -p 5000 --host 0.0.0.0 &> /var/log/redash/server.log"
+
+redash_celery:
+  extends:
+    service: redash_template
+  environment:
+    REDASH_REDIS_URL: "redis://redis.local.redash.bunnyinc.com:6379/0"
+    REDASH_DATABASE_URL: "postgresql://postgres@postgres.local.redash.bunnyinc.com/postgres"
+    C_FORCE_ROOT: "true"
+  command: bash -c "celery worker --app=redash.worker --beat -c2 -Qqueries,celery --maxtasksperchild=10 -Ofair &> /var/log/redash/redash_celery.log"
+
+redash_celery_scheduled:
+  extends:
+    service: redash_template
+  environment:
+    REDASH_REDIS_URL: "redis://redis.local.redash.bunnyinc.com:6379/0"
+    REDASH_DATABASE_URL: "postgresql://postgres@postgres.local.redash.bunnyinc.com/postgres"
+    C_FORCE_ROOT: "true"
+  command: bash -c "celery worker --app=redash.worker -c1 -Qscheduled_queries --maxtasksperchild=10 -Ofair &> /var/log/redash/redash_celery_scheduled.log"
+
+redash-nginx:
+  image: redash/nginx:latest
+  ports:
+    - "80:80"
+  links:
+    - redash
+  environment:
+    - DNSDOCK_ALIAS=local.redash.bunnyinc.com
+
+base:
+  image: gliderlabs/alpine:3.1
+  links:
+    - dns:dns
+    - mail:mail
+    - redis:redis
+    - postgres:postgres
+  command: echo 'base components up'
+
+run_redash:
+  image: gliderlabs/alpine:3.1
+  links:
+    - redash:redash
+    - redash_celery:redash_celery
+    - redash_celery_scheduled:redash_celery_scheduled
+    - redash-nginx:redash-nginx
+  command: echo 'redash components up'
+
+redash_tests:
+  extends:
+    service: redash_template
+  environment:
+    REDASH_REDIS_URL: "redis://redis.local.redash.bunnyinc.com:6379/5"
+    REDASH_CELERY_BROKER: "redis://redis.local.redash.bunnyinc.com:6379/6"
+    REDASH_DATABASE_URL: "postgresql://postgres@postgres.local.redash.bunnyinc.com/circle_test"
+
+

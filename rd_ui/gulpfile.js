@@ -7,6 +7,7 @@ var lazypipe = require('lazypipe');
 var rimraf = require('rimraf');
 var wiredep = require('wiredep').stream;
 var runSequence = require('run-sequence');
+var _ = require('lodash');
 
 var yeoman = {
   app: 'app',
@@ -40,7 +41,8 @@ var styles = lazypipe()
 
 gulp.task('styles', function () {
   return gulp.src(paths.styles)
-    .pipe(styles());
+    .pipe(styles())
+    .pipe($.livereload());
 });
 
 gulp.task('lint:scripts', function () {
@@ -90,7 +92,8 @@ gulp.task('client:build', ['html', 'styles'], function () {
 
 gulp.task('html', function () {
   return gulp.src(yeoman.app + '/views/**/*')
-    .pipe(gulp.dest(yeoman.dist + '/views'));
+    .pipe(gulp.dest(yeoman.dist + '/views'))
+    .pipe($.livereload());
 });
 
 gulp.task('images', function () {
@@ -115,6 +118,41 @@ gulp.task('copy:fonts', function () {
 
 gulp.task('build', ['clean:dist'], function () {
   runSequence(['images', 'copy:extras', 'copy:fonts', 'client:build']);
+});
+
+var scriptsjs = function(p){
+  var jsFilter = $.filter('**/*.js');
+  return gulp.src(p)
+    .pipe($.useref({searchPath: [yeoman.app, '.tmp']}))
+    .pipe(jsFilter)
+    .pipe($.ngAnnotate())
+    .pipe(jsFilter.restore())
+    .pipe($.print())
+    .pipe(new $.revAll({dontRenameFile: ['.html'], dontUpdateReference: ['vendor_scripts.html', 'app_layout.html', 'signed_out_layout.html']}).revision())
+    .pipe(gulp.dest(yeoman.dist))
+    .pipe($.livereload());
+};
+
+gulp.task('dev:pre', function () {
+  scriptsjs(paths.views.main);
+});
+
+gulp.task('dev:pos', function () {
+  scriptsjs(_.difference(paths.views.main, ['vendor_scripts.html']));
+});
+
+gulp.task('dev', ['clean:dist'], function () {
+  runSequence(
+    ['images', 'copy:extras', 'copy:fonts'],
+    ['html', 'styles'],
+    'dev:pre',
+    function(){
+      $.livereload.listen();
+      gulp.watch([paths.styles], ['styles']);
+      gulp.watch([paths.views.files], ['html']);
+      gulp.watch([paths.scripts], ['dev:pos']);
+    }
+  );
 });
 
 gulp.task('default', ['build']);

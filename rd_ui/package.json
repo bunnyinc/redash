@@ -37,5 +37,7 @@
     "bower": "bower"
   },
   "dependencies": {
+    "gulp-livereload": "^3.8.1",
+    "lodash": "^4.13.1"
   }
 }
